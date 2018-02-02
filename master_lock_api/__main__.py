@@ -1,25 +1,16 @@
-#!/usr/bin/env python3
-"""Module for interacting with the Master Lock API."""
+"""CLI script to interact with the Master Lock API."""
 import argparse
 import datetime
 from datetime import datetime as dt
-import logging
 import json
-import pprint
+import logging
 import signal
 import sys
 
-import requests
-
-LOGGER = logging.getLogger("master_lock_api")
-"""Logger that this module uses."""
-
-BASE_URL = "https://api.masterlockvault.com/"
-"""The base URL for the Master Lock REST API."""
-
-
-class MasterLockError(Exception):
-    """Base exception for this module."""
+from master_lock_api import LOGGER, MasterLockError
+from master_lock_api.account_client import get_api_key
+from master_lock_api.product_client import get_kms_ids
+from master_lock_api.product_invitation_client import generate_temporary_code
 
 
 def load_config(config_file):
@@ -39,76 +30,6 @@ def save_config(config, config_file):
     with open(config_file, "w") as f:
         json.dump(config, f, sort_keys=True, indent=2)
     LOGGER.info("Saved config '" + config_file + "'")
-
-
-def call_api(method, url, parameters=None, body=None):
-    """Wrapper to interact with the Master Lock API. Returns deserialised JSON.
-    """
-    if method == "GET":
-        request_func = requests.get
-    elif method == "POST":
-        request_func = requests.post
-    else:
-        raise MasterLockError("HTTP method '" + method + "' is not supported.")
-
-    response = request_func(url, params=parameters, json=body)
-    if response.status_code != 200:
-        raise MasterLockError(method + " to '" + url + "' failed with error '"
-                              + str(response.status_code) + "':\n"
-                              + response.text)
-
-    response_json = response.json()
-    LOGGER.debug(method + " to '" + url + "' returned:\n"
-                 + pprint.pformat(response_json))
-    return response_json
-
-
-def get_api_key(username, password):
-    """API call to get an API key to use in future requests."""
-    method = "POST"
-    url = BASE_URL + "v4/account/authenticate/"
-    parameters = {"apikey": "androidble"}
-    body = {
-        "username": username,
-        "password": password
-    }
-    response_json = call_api(method, url, parameters, body)
-    return response_json["Token"]
-
-
-def get_kms_ids(username, api_key):
-    """API call to get lock KMS id's associated with the account."""
-    method = "GET"
-    url = BASE_URL + "v4/kmsdevicekey/"
-    parameters = {
-        "username": username,
-        "apikey": api_key
-    }
-    response_json = call_api(method, url, parameters)
-
-    locks = []
-    for lock in response_json:
-        locks.append({
-            "device_id": lock["DeviceId"],
-            "KMS_id": lock["KMSDeviceId"]
-        })
-    return locks
-
-
-def generate_temporary_code(username, api_key, kms_id, access_time=None):
-    """API call to generate a temporary code. If access_time is None, gets a
-    currently active code.
-    """
-    method = "GET"
-    url = BASE_URL + "v4/kmsdevice/" + kms_id + "/servicecode/"
-    parameters = {
-        "username": username,
-        "apikey": api_key
-    }
-    if access_time is not None:
-        parameters["accessTime"] = access_time
-    response_json = call_api(method, url, parameters)
-    return response_json["ServiceCode"]
 
 
 def load_and_check_config(config_file):
