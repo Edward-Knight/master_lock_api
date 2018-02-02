@@ -23,6 +23,8 @@ def call_api(method, url, parameters=None, body=None):
         request_func = requests.get
     elif method == "POST":
         request_func = requests.post
+    elif method == "PUT":
+        request_func = requests.put
     else:
         raise MasterLockError("HTTP method '" + method + "' is not supported.")
 
